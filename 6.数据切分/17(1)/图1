@@ -1,0 +1,64 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+# 读取Excel表格
+df = pd.read_excel('可视化.xlsx')  # 替换为你的Excel文件路径
+
+# 筛选需要的列
+selected_columns = ['elapsed_time', 'set_no', 'game_no', 'point_no', 'p1_sets', 'p2_sets', 'p1_games', 'p2_games', 'p1_points_won', 'p2_points_won']
+
+# # 转换elapsed_time为timedelta类型
+# df['elapsed_time'] = pd.to_timedelta(df['elapsed_time'])
+#
+# # 将 timedelta 转换为分钟
+# df['elapsed_time'] = df['elapsed_time'].dt.total_seconds() / 60
+# # print(df['elapsed_time'])
+# df.to_excel('可视化.xlsx')
+group = df[selected_columns].copy()
+
+# 存储处理后的数据框
+processed_dataframes = []
+# 获取每组数据的最后一个值
+last_values = group.groupby(['set_no', 'game_no']).tail(1)
+# 在 list 的最前面插入0
+list_last_p1 = np.insert(last_values['p1_points_won'].values, 0, 0)
+list_last_p2 = np.insert(last_values['p2_points_won'].values, 0, 0)
+
+# 计算每组内的相对得分
+df_grouped_pro = group.groupby(['set_no', 'game_no'])
+i = 0
+for (set_no, game_no), group_pro in df_grouped_pro:
+    # 使用 transform 函数进行相对得分计算
+    group_pro['p1_points'] = group_pro['p1_points_won'] - list_last_p1[i]
+    group_pro['p2_points'] = group_pro['p2_points_won'] - list_last_p2[i]
+    i += 1
+    # 将处理后的数据添加到列表中
+    processed_dataframes.append(group_pro)
+
+# 将处理后的数据合并到原始数据框
+df_grouped = pd.concat(processed_dataframes)
+# 选择要显示的比赛（例如，第一场比赛）
+set_to_display = 2
+game_to_display = 13
+df_selected = df_grouped[(df_grouped['set_no'] == set_to_display) & (df_grouped['game_no'] == game_to_display)].copy()
+print(df_selected)
+plt.figure(figsize=(6,5),dpi=300)
+sns.lineplot(x='elapsed_time', y='p1_points', data=df_selected, label='Points Won by Player 1', linewidth=1.5)
+sns.lineplot(x='elapsed_time', y='p2_points', color ='#d56e6d', data=df_selected, label='Points Won by Player 2', linewidth=1.5)
+plt.title('Time Series of $\mathbf{Points}$')
+plt.xlabel('Elapsed Time (min)')
+plt.ylabel('Count')
+plt.xlim(107, 119.5)
+plt.ylim(-0.5, 8.8)
+plt.legend(loc="upper left", ncol=1, fontsize=9)
+# 使用fill_between为线条旁边添加颜色的范围
+plt.grid(True,linestyle='--',alpha=0.3)
+plt.fill_between(x='elapsed_time', y1=df_selected['p1_points']*0.95, y2=df_selected['p1_points']*1.05, color='skyblue', alpha=0.4, data=df_selected)
+plt.fill_between(x='elapsed_time', y1=df_selected['p2_points']*0.95, y2=df_selected['p2_points']*1.05, color='#d56e6d', alpha=0.4, data=df_selected)
+plt.xticks(np.arange(107, 120, 2))
+plt.yticks(np.arange(0, 9, 2))
+
+plt.tight_layout()
+plt.show()
